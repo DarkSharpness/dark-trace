@@ -35,12 +35,13 @@ const SLICE_FONT = '11px ' + SANS;
 const SLICE_CHAR_W = 6.0;    // approx px/char for the slice font (truncation estimate)
 
 export class Viewer {
-  constructor(canvas, minimap, model, callbacks, mode = 'light') {
+  constructor(canvas, minimap, model, callbacks, mode = 'light', palette = 'vivid') {
     this.canvas = canvas;
     this.minimap = minimap;
     this.model = model;
     this.cb = callbacks; // {onSelect(sel|null), onHover(info|null)}
     this.mode = mode;
+    this.palette = palette;
     this.th = CANVAS[mode] || CANVAS.light;
     this.ctx = canvas.getContext('2d');
     this.mmCtx = minimap.getContext('2d');
@@ -79,6 +80,11 @@ export class Viewer {
   setTheme(mode) {
     this.mode = mode;
     this.th = CANVAS[mode] || CANVAS.light;
+    this.redraw();
+  }
+
+  setPalette(palette) {
+    this.palette = palette;       // color cache is keyed by palette, no clear needed
     this.redraw();
   }
 
@@ -387,7 +393,7 @@ export class Viewer {
         x1 = Math.min(x1, W + 4);
         const w = x1 - x0;
         const name = this.model.strings[track.nameId[e]];
-        const col = colorFor(name, this.mode);
+        const col = colorFor(name, this.mode, this.palette);
         const dimmed = search && !search.has(track.nameId[e]);
         ctx.fillStyle = dimmed ? col.dim : col.fill;
         ctx.fillRect(x0, yTop + 1, w, hPx - 2);

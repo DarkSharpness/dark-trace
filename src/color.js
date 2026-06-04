@@ -1,4 +1,6 @@
-// Stable name -> color mapping (Chrome-tracing-like palette), theme aware.
+// Stable name -> color mapping (Chrome-tracing-like palette), theme + palette aware.
+
+import { paletteById } from './palette.js';
 
 const cache = new Map();
 
@@ -11,18 +13,19 @@ function hash(s) {
   return h >>> 0;
 }
 
-const HUES = [4, 22, 40, 58, 88, 124, 154, 176, 196, 212, 232, 258, 284, 310, 334];
-
 /**
- * Returns {fill, dim, text} for a slice name under the given mode
- * ('light' | 'dark'). Slices stay legible with dark text in both themes.
+ * Returns {fill, dim, text} for a slice name under the given theme mode
+ * ('light' | 'dark') and palette id ('vivid' | 'calm' | 'calmer'). The palette
+ * sets the hue set (how many colors); the theme sets saturation/lightness.
  */
-export function colorFor(name, mode) {
-  const key = mode + '|' + name;
+export function colorFor(name, mode, paletteId = 'vivid') {
+  const key = paletteId + '|' + mode + '|' + name;
   let c = cache.get(key);
   if (c === undefined) {
+    const pal = paletteById(paletteId);
+    const HUES = pal.hues, J = pal.jitter;
     const h = hash(name);
-    const hue = HUES[h % HUES.length] + ((h >> 8) % 14) - 7;
+    const hue = HUES[h % HUES.length] + ((h >> 8) % (2 * J + 1)) - J;
     const sat = 50 + ((h >> 16) % 20);
     if (mode === 'light') {
       const lit = 70 + ((h >> 24) % 10);

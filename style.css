@@ -143,6 +143,27 @@ kbd {
 :root[data-theme="dark"] #theme-toggle .ico-sun { display: none; }
 :root[data-theme="dark"] #theme-toggle .ico-moon { display: inline; }
 
+/* dropdown menu (palette picker) */
+.menu-anchor { position: relative; display: inline-flex; }
+.menu {
+  position: absolute; top: calc(100% + 6px); right: 0; z-index: 70;
+  min-width: 230px; padding: 5px;
+  background: var(--panel); color: var(--fg);
+  border: 1px solid var(--border); border-radius: 9px; box-shadow: var(--shadow);
+}
+.menu-item {
+  display: flex; align-items: center; gap: 8px; width: 100%;
+  background: none; border: none; color: var(--fg); cursor: pointer;
+  padding: 7px 8px; border-radius: 6px; font-size: 12.5px; font-family: inherit; text-align: left;
+}
+.menu-item:hover { background: var(--hover); }
+.menu-item .check { width: 12px; flex: 0 0 12px; color: var(--accent); }
+.menu-item .pal-name { font-weight: 500; }
+.menu-item .pal-right { margin-left: auto; display: flex; align-items: center; gap: 9px; }
+.menu-item .pal-sws { display: inline-flex; gap: 2px; }
+.menu-item .pal-sw { width: 9px; height: 13px; border-radius: 2px; }
+.menu-item .pal-hint { color: var(--faint); font-size: 11px; min-width: 44px; text-align: right; }
+
 .btn {
   background: var(--chrome-hover); color: var(--chrome-fg);
   border: 1px solid transparent; border-radius: 6px;

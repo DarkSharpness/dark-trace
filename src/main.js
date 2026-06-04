@@ -4,6 +4,7 @@ import { Viewer } from './render.js';
 import { fmtTime, escapeHtml } from './util.js';
 import { colorFor } from './color.js';
 import * as theme from './theme.js';
+import * as palette from './palette.js';
 
 const $ = (id) => document.getElementById(id);
 const td = new TextDecoder();
@@ -21,6 +22,7 @@ if (document.fonts && document.fonts.load) {
   ]).then(() => { if (viewer) viewer.redraw(); }).catch(() => {});
 }
 let mode = theme.resolveMode();
+let pal = palette.getPalette();
 
 // ---------- status ----------
 function status(msg, isError = false) {
@@ -173,7 +175,7 @@ async function buildModel(files, title) {
   viewer = new Viewer($('timeline'), $('minimap'), model, {
     onSelect: showDetails,
     onHover: showTooltip,
-  }, mode);
+  }, mode, pal);
   viewer.resize();
   $('timeline').focus();
 }
@@ -185,7 +187,7 @@ function showTooltip(info) {
   const { track, idx } = info;
   const name = model.strings[track.nameId[idx]];
   const cat = model.strings[track.catId[idx]];
-  const col = colorFor(name, mode).fill;
+  const col = colorFor(name, mode, pal).fill;
   tt.innerHTML =
     `<div class="tt-name"><span class="tt-sw" style="background:${col}"></span>${escapeHtml(name)}</div>` +
     `<div class="tt-row"><b>dur</b> ${fmtTime(track.dur[idx])} · <b>start</b> +${fmtTime(track.ts[idx] - model.t0)}` +
@@ -220,7 +222,7 @@ function renderSelPane(sel) {
   const { track, idx } = sel;
   const name = model.strings[track.nameId[idx]];
   const cat = model.strings[track.catId[idx]];
-  const col = colorFor(name, mode).fill;
+  const col = colorFor(name, mode, pal).fill;
   const rows = [
     ['category', cat || '—'],
     ['start', `+${fmtTime(track.ts[idx] - model.t0)}`],
@@ -390,8 +392,48 @@ function runSearch() {
 theme.onChange((m) => {
   mode = m;
   if (viewer) { viewer.setTheme(m); if (currentSel) { renderSelPane(currentSel); renderFlowsPane(currentSel); } }
+  buildPaletteMenu();   // swatch previews depend on the theme
 });
 $('theme-toggle').onclick = () => theme.toggle();
+
+// ---------- palette picker ----------
+function swatchColor(hue) {
+  return mode === 'light' ? `hsl(${hue},60%,74%)` : `hsl(${hue},48%,58%)`;
+}
+function buildPaletteMenu() {
+  const menu = $('palette-menu');
+  menu.innerHTML = palette.PALETTES.map(p => {
+    const sw = p.hues.slice(0, 8)
+      .map(h => `<span class="pal-sw" style="background:${swatchColor(h)}"></span>`).join('');
+    return `<button class="menu-item" data-pal="${p.id}">` +
+      `<span class="check">${p.id === pal ? '✓' : ''}</span>` +
+      `<span class="pal-name">${p.name}</span>` +
+      `<span class="pal-right"><span class="pal-sws">${sw}</span>` +
+      `<span class="pal-hint">${p.hint}</span></span></button>`;
+  }).join('');
+  menu.querySelectorAll('.menu-item').forEach(it => {
+    it.onclick = () => { palette.setPalette(it.dataset.pal); menu.hidden = true; };
+  });
+}
+$('palette-btn').onclick = (e) => {
+  e.stopPropagation();
+  const m = $('palette-menu');
+  if (m.hidden) buildPaletteMenu();
+  m.hidden = !m.hidden;
+};
+document.addEventListener('click', (e) => {
+  const m = $('palette-menu');
+  if (!m.hidden && !e.target.closest('.menu-anchor')) m.hidden = true;
+});
+window.addEventListener('keydown', (e) => {
+  const m = $('palette-menu');
+  if (e.key === 'Escape' && !m.hidden) { e.stopImmediatePropagation(); m.hidden = true; }
+}, true);
+palette.onChange((id) => {
+  pal = id;
+  if (viewer) { viewer.setPalette(id); if (currentSel) { renderSelPane(currentSel); renderFlowsPane(currentSel); } }
+  buildPaletteMenu();
+});
 
 // ---------- sidebar ----------
 $('sidebar-toggle').onclick = () => {
