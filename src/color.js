@@ -35,14 +35,15 @@ export function colorFor(name, mode, paletteId = 'vivid') {
         text: '#1d2530',
       };
     } else {
-      // Dark: chroma ≈ S × (1 − |2L − 1|), so very high lightness drains color
-      // (pale) and mid lightness with moderate saturation reads rich but not neon.
-      const dsat = 42 + ((h >> 16) % 14);   // 42–55%
-      const lit = 54 + ((h >> 24) % 10);    // 54–63% (mid — where chroma lives)
+      // Dark: white slice text. Keep fills rich (chroma ≈ S × (1 − |2L − 1|) peaks
+      // near L=50) but a touch darker than the background-pop maximum so white text
+      // stays legible across hues.
+      const dsat = 44 + ((h >> 16) % 14);   // 44–57%
+      const lit = 47 + ((h >> 24) % 9);     // 47–55% (deep enough for white text)
       c = {
         fill: `hsl(${hue},${dsat}%,${lit}%)`,
-        dim: `hsl(${hue},${Math.round(dsat * .5)}%,25%)`,
-        text: '#16191f',
+        dim: `hsl(${hue},${Math.round(dsat * .5)}%,24%)`,
+        text: '#ffffff',
       };
     }
     cache.set(key, c);
