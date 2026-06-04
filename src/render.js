@@ -20,6 +20,7 @@ const GROUP_H = px(26);
 const ROW_H = px(20);      // one lane
 const TRACK_PAD = px(4);
 const COLLAPSED_H = px(22); // height of a collapsed track row
+const MIN_CONTENT = px(120); // min timeline width kept to the right of the gutter
 const MIN_SPAN = 0.005;    // µs
 // Roboto everywhere (matches the chrome and Perfetto's primary font). Roboto has
 // normal proportions; Google's separate "Roboto Condensed" family reads as
@@ -54,7 +55,11 @@ export class Viewer {
     this.mmCtx = minimap.getContext('2d');
 
     const savedG = parseFloat(localStorage.getItem('dark-trace-gutter'));
-    this.gutter = Number.isFinite(savedG) ? clamp(savedG, GUTTER_MIN, GUTTER_MAX) : G0;
+    // gutterPref is the user's chosen width; this.gutter is the effective width,
+    // re-clamped against the canvas width in resize() so a narrow window can't
+    // make the gutter swallow the whole timeline (which would invert tToX).
+    this.gutterPref = Number.isFinite(savedG) ? clamp(savedG, GUTTER_MIN, GUTTER_MAX) : G0;
+    this.gutter = this.gutterPref;
 
     this.viewT0 = model.t0;
     this.viewT1 = model.t1;
@@ -107,8 +112,21 @@ export class Viewer {
     }
     this.W = this.canvas.getBoundingClientRect().width;
     this.H = this.canvas.getBoundingClientRect().height;
+    this._clampGutter();
     if (this.selection) this._scrollTrackIntoView(this.selection.track);
     this.redraw();
+  }
+
+  /**
+   * Effective gutter = the user's preferred width, but never so wide that the
+   * timeline to its right shrinks below MIN_CONTENT (or goes negative on a very
+   * narrow canvas, which would flip the time axis). The preference is preserved,
+   * so widening the window restores the chosen width.
+   */
+  _clampGutter() {
+    let g = clamp(this.gutterPref, GUTTER_MIN, GUTTER_MAX);
+    const maxG = Math.max(0, this.W - MIN_CONTENT);
+    this.gutter = Math.max(0, Math.min(g, maxG));
   }
 
   /** Default view: zoom to the densest region so the trace opens with detail. */
@@ -756,8 +774,9 @@ export class Viewer {
       const { x, y } = this._rel(ev);
       this.mouseX = x;
       if (gutterDrag) {
-        this.gutter = clamp(Math.round(x), GUTTER_MIN, GUTTER_MAX);
-        localStorage.setItem('dark-trace-gutter', String(this.gutter));
+        this.gutterPref = clamp(Math.round(x), GUTTER_MIN, GUTTER_MAX);
+        localStorage.setItem('dark-trace-gutter', String(this.gutterPref));
+        this._clampGutter();
         if (this.hover) { this.hover = null; this.cb.onHover(null); }
         cv.style.cursor = 'ew-resize';
         this.redraw();

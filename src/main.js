@@ -400,7 +400,10 @@ function runSearch() {
   if (!q) { viewer.setSearch(null); $('search-info').textContent = ''; setSearchNavEnabled(false); return; }
   const set = new Set();
   model.strings.forEach((s, i) => { if (s.toLowerCase().includes(q)) set.add(i); });
-  let count = 0; const CAP = 50000;
+  // Count every match for an honest total; collect them for navigation up to a
+  // high safety cap (matches can't exceed the slice count, so this only ever
+  // bites on pathological multi-file loads — not normal traces).
+  let count = 0; const CAP = 500000;
   for (const g of model.groups) for (const t of g.tracks) {
     for (let i = 0; i < t.n; i++) if (set.has(t.nameId[i])) {
       count++;
@@ -409,9 +412,11 @@ function runSearch() {
   }
   searchMatches.sort((a, b) => a.ts - b.ts);
   viewer.setSearch(set);
-  const n = searchMatches.length;
-  $('search-info').textContent = n ? '/ ' + n.toLocaleString() : 'no hits';
-  setSearchNavEnabled(n > 0);
+  const navc = searchMatches.length;
+  $('search-info').textContent = count
+    ? '/ ' + count.toLocaleString() + (count > navc ? ` (first ${navc.toLocaleString()} navigable)` : '')
+    : 'no hits';
+  setSearchNavEnabled(navc > 0);
 }
 
 // ---------- theme ----------
