@@ -50,6 +50,7 @@ independent of the theme and is remembered across sessions.
 | `A` / `D` | pan left / right |
 | `shift`+drag | measure a time range |
 | click | select slice (details + flow arrows) |
+| click group header / track `▾` caret | collapse a whole group / a single track |
 | double-click / `F` | zoom to slice |
 | `,` / `.` | jump to prev / next slice with the **same name** as the selection |
 | `0` | reset zoom · `Esc` clear |

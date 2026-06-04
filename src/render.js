@@ -19,6 +19,7 @@ const RULER_H = px(28);
 const GROUP_H = px(26);
 const ROW_H = px(20);      // one lane
 const TRACK_PAD = px(4);
+const COLLAPSED_H = px(22); // height of a collapsed track row
 const MIN_SPAN = 0.005;    // µs
 // Roboto everywhere (matches the chrome and Perfetto's primary font). Roboto has
 // normal proportions; Google's separate "Roboto Condensed" family reads as
@@ -145,7 +146,7 @@ export class Viewer {
       y += GROUP_H;
       if (!g.collapsed) {
         for (const t of g.tracks) {
-          const h = t.nLanes * ROW_H + TRACK_PAD * 2;
+          const h = t.collapsed ? COLLAPSED_H : t.nLanes * ROW_H + TRACK_PAD * 2;
           this.rows.push({ type: 'track', track: t, y, h });
           this.trackY.set(t, y);
           y += h;
@@ -269,7 +270,9 @@ export class Viewer {
 
   _scrollTrackIntoView(track) {
     this._layout();
-    if (track.group.collapsed) { track.group.collapsed = false; this._layout(); }
+    if (track.group.collapsed || track.collapsed) {
+      track.group.collapsed = false; track.collapsed = false; this._layout();
+    }
     const y = this.trackY.get(track);
     if (y === undefined) return;
     const lane = this.selection && this.selection.track === track
@@ -289,12 +292,15 @@ export class Viewer {
     for (const row of this.rows) {
       if (cy >= row.y && cy < row.y + row.h) {
         if (row.type === 'group') return { type: 'group', group: row.group };
-        if (x < this.gutter) return { type: 'label', track: row.track };
+        const track = row.track;
+        // collapse caret (gutter, left), or anywhere on a collapsed row, toggles
+        if (track.collapsed || (x < this.gutter && x <= 18)) return { type: 'track-toggle', track };
+        if (x < this.gutter) return { type: 'label', track };
         const lane = Math.floor((cy - row.y - TRACK_PAD) / ROW_H);
-        if (lane < 0 || lane >= row.track.nLanes) return { type: 'track', track: row.track };
+        if (lane < 0 || lane >= track.nLanes) return { type: 'track', track };
         const t = this.xToT(x);
-        const idx = row.track.hitTest(t, lane);
-        return { type: 'slice', track: row.track, idx, lane };
+        const idx = track.hitTest(t, lane);
+        return { type: 'slice', track, idx, lane };
       }
     }
     return null;
@@ -355,6 +361,7 @@ export class Viewer {
   }
 
   _drawTrack(track, top) {
+    if (track.collapsed) return;   // collapsed: gutter shows the label, no slices
     const ctx = this.ctx, W = this.W, th = this.th;
     const scale = (W - this.gutter) / (this.viewT1 - this.viewT0);
     const search = this.searchSet;
@@ -546,7 +553,8 @@ export class Viewer {
         }
         ctx.fillStyle = th.trackText;
         ctx.font = FONT;
-        ctx.fillText(this._ellipsize(t.name || `tid ${t.tid}`, this.gutter - 18 - reserve), 18, ly);
+        ctx.fillText(t.collapsed ? '▸' : '▾', 6, ly);   // per-track collapse caret
+        ctx.fillText(this._ellipsize(t.name || `tid ${t.tid}`, this.gutter - 26 - reserve), 22, ly);
       }
       ctx.strokeStyle = th.rowSep;
       ctx.beginPath();
@@ -756,7 +764,7 @@ export class Viewer {
       } else {
         this.hover = null;
         this.cb.onHover(null);
-        cv.style.cursor = hit && hit.type === 'group' ? 'pointer' : 'default';
+        cv.style.cursor = hit && (hit.type === 'group' || hit.type === 'track-toggle') ? 'pointer' : 'default';
       }
     });
 
@@ -772,6 +780,7 @@ export class Viewer {
       const hit = this.pick(x, y);
       if (!hit) { this.select(null, -1); return; }
       if (hit.type === 'group') { hit.group.collapsed = !hit.group.collapsed; this.redraw(); return; }
+      if (hit.type === 'track-toggle') { hit.track.collapsed = !hit.track.collapsed; this.redraw(); return; }
       if (hit.type === 'slice' && hit.idx >= 0) this.select(hit.track, hit.idx);
       else this.select(null, -1);
     });
