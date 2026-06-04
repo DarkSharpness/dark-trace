@@ -24,6 +24,12 @@ export const PALETTES = [
     id: 'plain', name: 'Plain', hint: 'per track', jitter: 0,
     hues: [10, 40, 70, 100, 140, 170, 200, 225, 255, 285, 315, 340],
   },
+  {
+    // Tableau 10 — hand-balanced categorical palette; reads well on light & dark.
+    id: 'tableau', name: 'Tableau', hint: '10 curated',
+    colors: ['#4e79a7', '#f28e2b', '#e15759', '#76b7b2', '#59a14f',
+      '#edc948', '#b07aa1', '#ff9da7', '#9c755f', '#bab0ac'],
+  },
 ];
 
 export function paletteById(id) {

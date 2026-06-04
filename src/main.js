@@ -403,8 +403,10 @@ function swatchColor(hue) {
 function buildPaletteMenu() {
   const menu = $('palette-menu');
   menu.innerHTML = palette.PALETTES.map(p => {
-    const sw = p.hues.slice(0, 8)
-      .map(h => `<span class="pal-sw" style="background:${swatchColor(h)}"></span>`).join('');
+    const sw = (p.colors
+      ? p.colors.slice(0, 8)
+      : p.hues.slice(0, 8).map(swatchColor))
+      .map(col => `<span class="pal-sw" style="background:${col}"></span>`).join('');
     return `<button class="menu-item" data-pal="${p.id}">` +
       `<span class="check">${p.id === pal ? '✓' : ''}</span>` +
       `<span class="pal-name">${p.name}</span>` +
