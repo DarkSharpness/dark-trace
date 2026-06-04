@@ -45,19 +45,28 @@ class Track {
     const laneEnds = [];
     const laneIdx = [];
     const open = [];   // stack of open-parent end times, for call-tree nesting
+    // GPU/device streams run genuinely concurrently, so their event lengths must
+    // never be clipped. Such tracks live in a group labelled "GPU<n>" and their
+    // events carry CUDA device/stream args — either marks the whole track as a
+    // device stream that is exempt from the call-stack clip below.
+    const grp = this.group;
+    const deviceGroup = /gpu/i.test(grp.label || '') || /gpu/i.test(grp.name || '');
     for (let i = 0; i < n; i++) {
       const e = evs[i];
-      // Within a single track, events form a call tree: a child cannot outlive
-      // its parent. Some profilers emit a frame whose duration was stretched to
-      // the capture/stop instant, so it overshoots its parent by up to the whole
-      // trace (e.g. pybind11 __exit__ frames all ending at profiler-stop), which
-      // would otherwise render as a huge bar. Clip any overshoot to the parent's
-      // end. This is a no-op for properly nested frames and only trims sub-µs
-      // timing jitter elsewhere, so genuine overlaps still open extra lanes.
+      const a = e.args;
+      const device = deviceGroup || (a && (a.stream !== undefined || a.device !== undefined));
+      // A sequential (CPU) call stack is a tree: a child cannot outlive its
+      // parent. Some profilers stretch a frame's duration to the capture/stop
+      // instant, so it overshoots its parent by up to the whole trace (e.g.
+      // pybind11 __exit__ frames all ending at profiler-stop) and renders as a
+      // huge bar. Clip such overshoots to the parent's end. Device-stream events
+      // are exempt — their overlaps are real and lengths are kept verbatim.
       while (open.length && open[open.length - 1] <= e.ts + LANE_EPS) open.pop();
-      const parentEnd = open.length ? open[open.length - 1] : Infinity;
       let end = e.ts + e.dur;
-      if (end > parentEnd) { end = parentEnd; e.dur = Math.max(0, end - e.ts); }
+      if (!device) {
+        const parentEnd = open.length ? open[open.length - 1] : Infinity;
+        if (end > parentEnd) { end = parentEnd; e.dur = Math.max(0, end - e.ts); }
+      }
       open.push(end);
 
       this.ts[i] = e.ts;
