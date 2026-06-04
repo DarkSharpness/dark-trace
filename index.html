@@ -32,9 +32,10 @@
     <div id="omnibox">
       <svg class="omni-icon" viewBox="0 0 24 24" width="16" height="16"><circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="2" fill="none"/><path d="M21 21l-4.3-4.3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
       <input type="text" id="search" placeholder="Search slices by name…  (Enter ↵ next · ⇧↵ prev)" spellcheck="false" disabled>
+      <input type="text" id="search-pos" class="omni-pos" inputmode="numeric" placeholder="#" title="Jump to match number (type a number, Enter)" disabled>
+      <span id="search-info"></span>
       <button id="search-prev" class="omni-nav" title="Previous match (⇧Enter)" disabled>‹</button>
       <button id="search-next" class="omni-nav" title="Next match (Enter)" disabled>›</button>
-      <span id="search-info"></span>
     </div>
     <div class="topbar-spacer"></div>
     <span class="menu-anchor">

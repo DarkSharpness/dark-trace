@@ -351,25 +351,50 @@ $('search').addEventListener('keydown', (ev) => {
 });
 $('search-prev').onclick = () => stepSearch(-1);
 $('search-next').onclick = () => stepSearch(1);
+$('search-pos').addEventListener('keydown', (ev) => {
+  if (ev.key === 'Enter') { ev.preventDefault(); jumpToTypedMatch(); }
+  else if (ev.key === 'Escape') { $('timeline').focus(); }
+});
+$('search-pos').addEventListener('focus', (ev) => ev.target.select());
+
+// Move the selection to match index `i` (0-based) and reflect it in the box.
+function goToMatch(i) {
+  if (!searchMatches.length) return;
+  searchPos = (i % searchMatches.length + searchMatches.length) % searchMatches.length;
+  const m = searchMatches[searchPos];
+  viewer.select(m.track, m.idx);
+  viewer.revealSelection();
+  $('search-pos').value = searchPos + 1;
+  $('search-info').textContent = '/ ' + searchMatches.length.toLocaleString();
+}
 
 /** Move to the prev/next search match (dir: +1 next, -1 prev). */
 function stepSearch(dir) {
   if (!viewer) return;
   if (!searchMatches.length) runSearch();
   if (!searchMatches.length) return;
-  searchPos = (searchPos + dir + searchMatches.length) % searchMatches.length;
-  const m = searchMatches[searchPos];
-  viewer.select(m.track, m.idx);
-  viewer.revealSelection();
-  $('search-info').textContent = `${searchPos + 1}/${searchMatches.length}`;
+  goToMatch(searchPos < 0 ? (dir > 0 ? 0 : -1) : searchPos + dir);
 }
+
+// Jump to the user-typed match number (1-based).
+function jumpToTypedMatch() {
+  if (!viewer) return;
+  if (!searchMatches.length) runSearch();
+  if (!searchMatches.length) return;
+  const k = parseInt($('search-pos').value, 10);
+  if (!Number.isFinite(k)) return;
+  goToMatch(Math.min(Math.max(1, k), searchMatches.length) - 1);
+}
+
 function setSearchNavEnabled(on) {
   $('search-prev').disabled = !on;
   $('search-next').disabled = !on;
+  $('search-pos').disabled = !on;
 }
 
 function runSearch() {
   searchMatches = []; searchPos = -1;
+  $('search-pos').value = '';
   if (!viewer) return;
   const q = $('search').value.trim().toLowerCase();
   if (!q) { viewer.setSearch(null); $('search-info').textContent = ''; setSearchNavEnabled(false); return; }
@@ -384,8 +409,9 @@ function runSearch() {
   }
   searchMatches.sort((a, b) => a.ts - b.ts);
   viewer.setSearch(set);
-  $('search-info').textContent = count ? `${count.toLocaleString()} hits` : 'no hits';
-  setSearchNavEnabled(count > 0);
+  const n = searchMatches.length;
+  $('search-info').textContent = n ? '/ ' + n.toLocaleString() : 'no hits';
+  setSearchNavEnabled(n > 0);
 }
 
 // ---------- theme ----------

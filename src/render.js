@@ -403,22 +403,28 @@ export class Viewer {
         const w = x1 - x0;
         const name = this.model.strings[track.nameId[e]];
         const col = plain ? trackCol : colorFor(name, this.mode, this.palette);
+        // While searching, keep non-matches visible (real color + label) but
+        // faded, so the matches pop yet surrounding events stay inspectable.
         const dimmed = search && !search.has(track.nameId[e]);
-        ctx.fillStyle = dimmed ? col.dim : col.fill;
+        ctx.globalAlpha = dimmed ? 0.32 : 1;
+        ctx.fillStyle = col.fill;
         ctx.fillRect(x0, yTop + 1, w, hPx - 2);
-        if (w > 4 && !dimmed) {
+        if (w > 4) {
           ctx.strokeStyle = th.sliceBorder;
           ctx.lineWidth = 1;
           ctx.strokeRect(x0 + 0.5, yTop + 1.5, w - 1, hPx - 3);
         }
-        if (w > 22 && !dimmed) {
+        if (w > 22) {
           ctx.fillStyle = col.text;
           const label = this._fitLabel(track.nameId[e], name, w - 6);
           if (label) ctx.fillText(label, (x0 + x1) / 2, yTop + ROW_H / 2 - 0.5);
         }
+        if (dimmed) ctx.globalAlpha = 1;
       }
+      ctx.globalAlpha = 1;
       flushMerge();
     }
+    ctx.globalAlpha = 1;
     ctx.textAlign = 'left';
 
     // instant events: small vertical ticks
