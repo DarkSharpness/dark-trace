@@ -464,26 +464,30 @@ export class Viewer {
   _drawSelection(yOff) {
     if (!this.selection) return;
     const { track, idx } = this.selection;
-    const cy = this._slotY(track, idx, yOff);
-    if (cy === null) return;
     const ts = track.ts[idx], dur = track.dur[idx];
     const x0 = this.tToX(ts), x1 = this.tToX(ts + dur);
     if (x1 < this.gutter || x0 > this.W) return;
-    // Box height tracks the row the slice is shown in: a full lane normally, the
-    // shorter collapsed-row/group-header height when the track or its group is
-    // collapsed, so the frame hugs whatever actually represents the slice.
-    const collapsed = track.group.collapsed || track.collapsed;
-    const boxH = collapsed
-      ? (track.group.collapsed ? GROUP_H : COLLAPSED_H) - 3
-      : ROW_H - 3;
-    const top = cy - boxH / 2;
+    // Frame the box from the TOP of the row that represents the slice, matching
+    // exactly how the slice/row is painted — the slice fills its lane from the
+    // row top (not vertically centered), so centering the frame on the row would
+    // leave an asymmetric inner margin.
+    let top;
+    if (track.group.collapsed) {
+      const gy = this.groupY.get(track.group);
+      if (gy === undefined) return;
+      top = gy + yOff;
+    } else {
+      const y = this.trackY.get(track);
+      if (y === undefined) return;
+      top = track.collapsed ? y + yOff : y + yOff + TRACK_PAD + track.lane[idx] * ROW_H;
+    }
     const ctx = this.ctx;
     ctx.strokeStyle = this.th.sel;
     ctx.lineWidth = 2;
     // Draw at the slice's true extent and let the content clip (active here) cut
     // off any off-screen parts, so the frame never overshoots the viewport and
     // off-screen edges simply aren't drawn.
-    ctx.strokeRect(x0, top + 0.5, Math.max(x1 - x0, 2), boxH);
+    ctx.strokeRect(x0, top + 0.5, Math.max(x1 - x0, 2), ROW_H - 3);
     ctx.lineWidth = 1;
   }
 
