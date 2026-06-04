@@ -140,9 +140,11 @@ export class Viewer {
   _layout() {
     this.rows = [];
     this.trackY = new Map();
+    this.groupY = new Map();
     let y = 0;
     for (const g of this.model.groups) {
       this.rows.push({ type: 'group', group: g, y, h: GROUP_H });
+      this.groupY.set(g, y);
       y += GROUP_H;
       if (!g.collapsed) {
         for (const t of g.tracks) {
@@ -462,20 +464,45 @@ export class Viewer {
   _drawSelection(yOff) {
     if (!this.selection) return;
     const { track, idx } = this.selection;
-    const y = this.trackY.get(track);
-    if (y === undefined) return;
+    const cy = this._slotY(track, idx, yOff);
+    if (cy === null) return;
     const ts = track.ts[idx], dur = track.dur[idx];
     const x0 = this.tToX(ts), x1 = this.tToX(ts + dur);
     if (x1 < this.gutter || x0 > this.W) return;
-    const top = y + yOff + TRACK_PAD + track.lane[idx] * ROW_H;
+    // Box height tracks the row the slice is shown in: a full lane normally, the
+    // shorter collapsed-row/group-header height when the track or its group is
+    // collapsed, so the frame hugs whatever actually represents the slice.
+    const collapsed = track.group.collapsed || track.collapsed;
+    const boxH = collapsed
+      ? (track.group.collapsed ? GROUP_H : COLLAPSED_H) - 3
+      : ROW_H - 3;
+    const top = cy - boxH / 2;
     const ctx = this.ctx;
     ctx.strokeStyle = this.th.sel;
     ctx.lineWidth = 2;
     // Draw at the slice's true extent and let the content clip (active here) cut
     // off any off-screen parts, so the frame never overshoots the viewport and
     // off-screen edges simply aren't drawn.
-    ctx.strokeRect(x0, top + 0.5, Math.max(x1 - x0, 2), ROW_H - 3);
+    ctx.strokeRect(x0, top + 0.5, Math.max(x1 - x0, 2), boxH);
     ctx.lineWidth = 1;
+  }
+
+  /**
+   * Vertical center (canvas coords) of where slice `i` of `track` is drawn,
+   * honoring collapse state. When the track's group is collapsed the track has
+   * no row of its own, so the slice is represented by the group header row;
+   * when the track itself is collapsed its row is COLLAPSED_H tall with no lanes.
+   * Returns null if the slot maps to nothing visible.
+   */
+  _slotY(track, i, yOff) {
+    if (track.group.collapsed) {
+      const gy = this.groupY.get(track.group);
+      return gy === undefined ? null : gy + yOff + GROUP_H / 2;
+    }
+    const y = this.trackY.get(track);
+    if (y === undefined) return null;
+    if (track.collapsed) return y + yOff + COLLAPSED_H / 2;
+    return y + yOff + TRACK_PAD + track.lane[i] * ROW_H + ROW_H / 2;
   }
 
   _drawFlows(yOff) {
@@ -489,13 +516,10 @@ export class Viewer {
     ctx.fillStyle = this.th.flow;
     ctx.lineWidth = 1.5;
     const endpoint = (tr, i, atEnd) => {
-      const y = this.trackY.get(tr);
-      if (y === undefined) return null;
+      const cy = this._slotY(tr, i, yOff);
+      if (cy === null) return null;
       const t = atEnd ? tr.ts[i] + tr.dur[i] : tr.ts[i];
-      return {
-        x: clamp(this.tToX(t), this.gutter, this.W),
-        y: y + yOff + TRACK_PAD + tr.lane[i] * ROW_H + ROW_H / 2,
-      };
+      return { x: clamp(this.tToX(t), this.gutter, this.W), y: cy };
     };
     for (const flowId of [...out, ...inn]) {
       const fl = this.model.flows[flowId];
