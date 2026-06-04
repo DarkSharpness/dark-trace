@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>dark-trace — GPU trace viewer</title>
+<script>
+  // Set theme before first paint to avoid a flash.
+  (function () {
+    try {
+      var o = localStorage.getItem('dark-trace-theme');
+      var m = (o === 'light' || o === 'dark') ? o
+        : (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+      document.documentElement.dataset.theme = m;
+    } catch (e) { document.documentElement.dataset.theme = 'light'; }
+  })();
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><rect x='1' y='3' width='9' height='3' fill='%235b8def'/><rect x='4' y='7' width='11' height='3' fill='%23e0a458'/><rect x='2' y='11' width='6' height='3' fill='%2367b26f'/></svg>">
+</head>
+<body>
+<div id="app">
+  <!-- ───────────────────────── top bar ───────────────────────── -->
+  <header id="topbar">
+    <button id="sidebar-toggle" class="icon-btn" title="Toggle sidebar">
+      <svg viewBox="0 0 24 24" width="18" height="18"><path d="M3 6h18M3 12h18M3 18h18" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/></svg>
+    </button>
+    <span id="logo"><span class="logo-mark"></span>dark&#8209;trace</span>
+    <div id="omnibox">
+      <svg class="omni-icon" viewBox="0 0 24 24" width="16" height="16"><circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="2" fill="none"/><path d="M21 21l-4.3-4.3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      <input type="text" id="search" placeholder="Search slices by name…  (Enter ↵ next · ⇧↵ prev)" spellcheck="false" disabled>
+      <button id="search-prev" class="omni-nav" title="Previous match (⇧Enter)" disabled>‹</button>
+      <button id="search-next" class="omni-nav" title="Next match (Enter)" disabled>›</button>
+      <span id="search-info"></span>
+    </div>
+    <div class="topbar-spacer"></div>
+    <button id="theme-toggle" class="icon-btn" title="Toggle light / dark theme">
+      <svg class="ico-sun" viewBox="0 0 24 24" width="18" height="18"><circle cx="12" cy="12" r="4.5" fill="currentColor"/><g stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 2v2.5M12 19.5V22M2 12h2.5M19.5 12H22M4.9 4.9l1.8 1.8M17.3 17.3l1.8 1.8M19.1 4.9l-1.8 1.8M6.7 17.3l-1.8 1.8"/></g></svg>
+      <svg class="ico-moon" viewBox="0 0 24 24" width="18" height="18"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z" fill="currentColor"/></svg>
+    </button>
+    <button id="open-btn" class="btn primary">Open trace…</button>
+    <input type="file" id="file-input" accept=".gz,.tgz,.tar,.json" hidden>
+  </header>
+
+  <!-- ───────────────────────── body ───────────────────────── -->
+  <div id="main">
+    <aside id="sidebar">
+      <nav class="side-scroll">
+        <div class="side-section">
+          <div class="side-head">Navigation</div>
+          <button class="side-item" id="side-open"><span class="si-ico">📂</span>Open trace…</button>
+        </div>
+
+        <div class="side-section" id="side-trace" hidden>
+          <div class="side-head">Current trace</div>
+          <div id="side-stats"></div>
+          <button class="side-item" id="side-reset"><span class="si-ico">⤢</span>Reset zoom <kbd>0</kbd></button>
+          <button class="side-item" id="side-collapse"><span class="si-ico">▾</span>Collapse all groups</button>
+          <button class="side-item" id="side-expand"><span class="si-ico">▸</span>Expand all groups</button>
+        </div>
+
+        <div class="side-section">
+          <div class="side-head">Controls</div>
+          <div class="side-help">
+            <div><kbd>drag</kbd> pan</div>
+            <div><kbd>wheel</kbd> scroll</div>
+            <div><kbd>ctrl</kbd>+wheel zoom at cursor</div>
+            <div><kbd>W</kbd>/<kbd>S</kbd> zoom · <kbd>A</kbd>/<kbd>D</kbd> pan</div>
+            <div><kbd>shift</kbd>+drag measure range</div>
+            <div><kbd>F</kbd> focus selection</div>
+            <div><kbd>,</kbd>/<kbd>.</kbd> prev/next same name</div>
+            <div><kbd>0</kbd> reset · <kbd>Esc</kbd> clear</div>
+          </div>
+        </div>
+
+        <div class="side-section">
+          <div class="side-head">About</div>
+          <p class="side-note">Overlapping slices on one GPU stream are stacked into extra lanes
+            (<span class="badge-x">▤×N</span>) instead of being dropped.</p>
+          <button class="side-item" id="about-btn"><span class="si-ico">ⓘ</span>Credits &amp; license</button>
+        </div>
+      </nav>
+      <div class="side-foot">
+        <a href="https://github.com/DarkSharpness/dark-trace" target="_blank" rel="noopener">github.com/DarkSharpness/dark-trace ↗</a>
+      </div>
+      <div id="sidebar-resize" title="Drag to resize"></div>
+    </aside>
+
+    <main id="content">
+      <div id="viewer" hidden>
+        <canvas id="minimap"></canvas>
+        <canvas id="timeline" tabindex="0"></canvas>
+      </div>
+
+      <div id="drawer" hidden>
+        <div id="drawer-resize" title="Drag to resize"></div>
+        <div id="drawer-tabs">
+          <button class="tab active" data-tab="sel">Current Selection</button>
+          <button class="tab" data-tab="flows">Flows</button>
+          <div class="tab-spacer"></div>
+          <button id="drawer-close" class="icon-btn" title="Close">✕</button>
+        </div>
+        <div id="drawer-body">
+          <div class="tab-pane" data-pane="sel"></div>
+          <div class="tab-pane" data-pane="flows" hidden></div>
+        </div>
+      </div>
+
+      <!-- landing / drop screen, overlays the content area until a trace loads -->
+      <div id="landing">
+        <div id="drop-card">
+          <h1><span class="logo-mark big"></span>dark-trace</h1>
+          <p class="tagline">A static trace viewer that <b>never hides overlapping events</b>.</p>
+          <p>Overlapping slices on a single GPU stream are stacked into extra rows
+            instead of disappearing — no more blanks in the timeline.</p>
+          <div class="drop-zone" id="drop-zone">
+            <p class="big">Drop a <code>*.trace.tar.gz</code> here</p>
+            <p class="dim">or <code>*.trace.json.gz</code> / <code>*.json</code></p>
+            <div class="drop-actions">
+              <button id="open-btn2" class="btn primary">Choose file…</button>
+            </div>
+          </div>
+          <p class="dim foot">Everything runs locally in your browser. Nothing is uploaded.</p>
+
+          <div id="picker" hidden>
+            <h3>Archive contents — pick traces to load</h3>
+            <div id="picker-list"></div>
+            <div id="picker-actions">
+              <button id="picker-all" class="btn sm">all</button>
+              <button id="picker-none" class="btn sm">none</button>
+              <button id="picker-load" class="btn primary sm">Load selected</button>
+            </div>
+          </div>
+          <div id="status" hidden></div>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<div id="tooltip" hidden></div>
+
+<!-- ───────────────────────── about / credits ───────────────────────── -->
+<div id="about-modal" hidden>
+  <div id="about-card" role="dialog" aria-modal="true" aria-label="About dark-trace">
+    <button id="about-close" class="icon-btn" title="Close (Esc)">✕</button>
+    <h2><span class="logo-mark big"></span>dark-trace</h2>
+    <p class="about-tag">A static, in-browser trace viewer that <b>never hides overlapping events</b> —
+      overlapping slices on a single GPU stream are stacked into extra lanes instead of being dropped.</p>
+
+    <h3>Credits &amp; thanks</h3>
+    <p class="about-tag">dark-trace's design, interaction model, and visual language are modeled
+      directly on <b>Perfetto</b> and <b>magic-trace</b> — it would not exist without them.
+      With gratitude to:</p>
+    <ul class="about-list">
+      <li><b>Perfetto</b> — the trace UI this project follows: track layout, pan / zoom, selection,
+        flow arrows, the timeline ruler, fonts, and the overall look-and-feel.
+        <a href="https://github.com/google/perfetto" target="_blank" rel="noopener">google/perfetto</a>
+        · Apache License 2.0 ·
+        <a href="https://ui.perfetto.dev" target="_blank" rel="noopener">ui.perfetto.dev</a></li>
+      <li><b>magic-trace</b> — interaction model and inspiration; it popularised this style of viewer.
+        <a href="https://github.com/janestreet/magic-trace" target="_blank" rel="noopener">janestreet/magic-trace</a>
+        · MIT License ·
+        <a href="https://magic-trace.org" target="_blank" rel="noopener">magic-trace.org</a></li>
+      <li><b>Chrome Trace Event Format</b> (Google) — the JSON trace format this viewer reads.</li>
+      <li><b>PyTorch / Kineto</b> profiler — produces the GPU traces this viewer is built for.</li>
+      <li><b>Roboto</b> &amp; <b>Roboto Mono</b> typefaces (Google) — Apache License 2.0, served via
+        <a href="https://fonts.google.com" target="_blank" rel="noopener">Google Fonts</a>.</li>
+    </ul>
+    <p class="about-note">These projects are the work of their respective authors and remain under
+      their own licenses (Apache-2.0 / MIT). Please support and credit them too.</p>
+
+    <h3>License</h3>
+    <p class="about-note">dark-trace itself is released under the <b>MIT License</b> — © 2026 DarkSharpness.
+      See <a href="https://github.com/DarkSharpness/dark-trace/blob/main/LICENSE" target="_blank" rel="noopener">LICENSE</a>.</p>
+
+    <p class="about-foot">
+      <a href="https://github.com/DarkSharpness/dark-trace" target="_blank" rel="noopener">github.com/DarkSharpness/dark-trace ↗</a>
+      · built with Claude Code
+    </p>
+  </div>
+</div>
+
+<script type="module" src="src/main.js"></script>
+</body>
+</html>
