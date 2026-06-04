@@ -1,6 +1,6 @@
 import { gunzip, isGzip, untar } from './targz.js';
 import { TraceModel } from './parse.js';
-import { Viewer } from './render.js';
+import { Viewer, trackColorKey } from './render.js';
 import { fmtTime, escapeHtml } from './util.js';
 import { colorFor } from './color.js';
 import * as theme from './theme.js';
@@ -187,7 +187,7 @@ function showTooltip(info) {
   const { track, idx } = info;
   const name = model.strings[track.nameId[idx]];
   const cat = model.strings[track.catId[idx]];
-  const col = colorFor(name, mode, pal).fill;
+  const col = colorFor(pal === 'plain' ? trackColorKey(track) : name, mode, pal).fill;
   tt.innerHTML =
     `<div class="tt-name"><span class="tt-sw" style="background:${col}"></span>${escapeHtml(name)}</div>` +
     `<div class="tt-row"><b>dur</b> ${fmtTime(track.dur[idx])} · <b>start</b> +${fmtTime(track.ts[idx] - model.t0)}` +
@@ -222,7 +222,7 @@ function renderSelPane(sel) {
   const { track, idx } = sel;
   const name = model.strings[track.nameId[idx]];
   const cat = model.strings[track.catId[idx]];
-  const col = colorFor(name, mode, pal).fill;
+  const col = colorFor(pal === 'plain' ? trackColorKey(track) : name, mode, pal).fill;
   const rows = [
     ['category', cat || '—'],
     ['start', `+${fmtTime(track.ts[idx] - model.t0)}`],

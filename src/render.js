@@ -34,6 +34,12 @@ const FONT_MONO = px(11) + 'px ' + MONO;
 const SLICE_FONT = '11px ' + SANS;
 const SLICE_CHAR_W = 6.0;    // approx px/char for the slice font (truncation estimate)
 
+/** Stable color key for a track — used by the 'plain' palette (one color/track). */
+export function trackColorKey(track) {
+  const g = track.group ? track.group.displayName() : '';
+  return g + '¦' + (track.name != null ? track.name : track.tid);
+}
+
 export class Viewer {
   constructor(canvas, minimap, model, callbacks, mode = 'light', palette = 'vivid') {
     this.canvas = canvas;
@@ -355,6 +361,9 @@ export class Viewer {
     ctx.textBaseline = 'middle';
     ctx.font = SLICE_FONT;
     ctx.textAlign = 'center';
+    // 'plain' palette: one color for the whole track, computed once.
+    const plain = this.palette === 'plain';
+    const trackCol = plain ? colorFor(trackColorKey(track), this.mode, this.palette) : null;
 
     for (let l = 0; l < track.nLanes; l++) {
       const yTop = top + TRACK_PAD + l * ROW_H;
@@ -393,7 +402,7 @@ export class Viewer {
         x1 = Math.min(x1, W + 4);
         const w = x1 - x0;
         const name = this.model.strings[track.nameId[e]];
-        const col = colorFor(name, this.mode, this.palette);
+        const col = plain ? trackCol : colorFor(name, this.mode, this.palette);
         const dimmed = search && !search.has(track.nameId[e]);
         ctx.fillStyle = dimmed ? col.dim : col.fill;
         ctx.fillRect(x0, yTop + 1, w, hPx - 2);

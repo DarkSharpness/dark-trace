@@ -36,8 +36,9 @@ toggles and remembers an explicit choice. On load the view auto-zooms to the bus
 region (press `0` to fit the whole trace).
 
 The swatch button (left of the theme toggle) picks a **slice palette** — *Vivid* (15 hues,
-default), *Calm* (10), or *Calmer* (7) — to dial down color noise on busy traces. The
-palette is independent of the theme and is remembered across sessions.
+default), *Calm* (10), *Calmer* (7), or *Plain* (one flat color per track/stream) — to dial
+down color noise on busy traces. The palette is independent of the theme and is remembered
+across sessions.
 
 ### Controls
 

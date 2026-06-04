@@ -18,6 +18,12 @@ export const PALETTES = [
     id: 'calmer', name: 'Calmer', hint: '7 hues', jitter: 2,
     hues: [14, 45, 128, 178, 210, 270, 326],
   },
+  {
+    // Plain: a single flat color per track/stream (every slice in a track shares
+    // it); different tracks may get different colors. Coloured by track, not name.
+    id: 'plain', name: 'Plain', hint: 'per track', jitter: 0,
+    hues: [10, 40, 70, 100, 140, 170, 200, 225, 255, 285, 315, 340],
+  },
 ];
 
 export function paletteById(id) {
