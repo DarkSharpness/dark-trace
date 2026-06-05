@@ -190,7 +190,8 @@ function showTooltip(info) {
   const col = colorFor(pal === 'plain' ? trackColorKey(track) : name, mode, pal).fill;
   tt.innerHTML =
     `<div class="tt-name"><span class="tt-sw" style="background:${col}"></span>${escapeHtml(name)}</div>` +
-    `<div class="tt-row"><b>dur</b> ${fmtTime(track.dur[idx])} · <b>start</b> +${fmtTime(track.ts[idx] - model.t0)}` +
+    `<div class="tt-row"><b>dur</b> ${fmtTime(track.dur[idx])} · <b>non-overlap</b> ${fmtTime(track.nonOverlapDur(idx))}` +
+    ` · <b>start</b> +${fmtTime(track.ts[idx] - model.t0)}` +
     (cat ? ` · <b>cat</b> ${escapeHtml(cat)}` : '') + `</div>`;
   tt.hidden = false;
   // Coords are all in visual px (clientX, innerWidth, getBoundingClientRect under
@@ -227,6 +228,7 @@ function renderSelPane(sel) {
     ['category', cat || '—'],
     ['start', `+${fmtTime(track.ts[idx] - model.t0)}`],
     ['duration', fmtTime(track.dur[idx])],
+    ['non-overlap', fmtTime(track.nonOverlapDur(idx))],
     ['end', `+${fmtTime(track.ts[idx] + track.dur[idx] - model.t0)}`],
     ['track', `${track.group.displayName()} ▸ ${track.name || 'tid ' + track.tid}`],
     ['lane', `${track.lane[idx]} of ${track.nLanes}`],

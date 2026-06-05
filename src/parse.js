@@ -100,6 +100,23 @@ class Track {
     this.instants.sort((a, b) => a.ts - b.ts);
   }
 
+  /**
+   * Duration of slice `i` that does NOT overlap the previous slice on the track
+   * (the one with the largest start time before it — index i-1, since slices are
+   * stored sorted by start):
+   *   end   = this slice's end
+   *   start = max(previous slice's end, this slice's start)
+   *   dur   = max(0, end - start)
+   * Defensive by design: when slices are deeply nested/overlapping the result is
+   * clamped to 0 rather than going negative. Only the immediate predecessor is
+   * considered, which is exact for the common case of at most two overlapping.
+   */
+  nonOverlapDur(i) {
+    const start = this.ts[i], end = start + this.dur[i];
+    const prevEnd = i > 0 ? this.ts[i - 1] + this.dur[i - 1] : -Infinity;
+    return Math.max(0, end - Math.max(prevEnd, start));
+  }
+
   /** Deepest slice covering time t, or -1. */
   hitTest(t, fromLane = null) {
     const lanes = this.lanes;
